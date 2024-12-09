@@ -1,0 +1,175 @@
+from timezonefinder import TimezoneFinder
+from geopy.geocoders import Nominatim
+from tkinter import messagebox
+from datetime import datetime
+from tkinter import *
+import requests
+import pytz
+
+# Functionality Definitions (unchanged from your original code)
+def is_connected():
+    try:
+        requests.get("https://www.google.com", timeout=5)
+        return True
+    except requests.ConnectionError:
+        return False
+
+def get_user_location():
+    try:
+        response = requests.get("http://ip-api.com/json/").json()
+        if response['status'] == "success":
+            return response['city']
+        else:
+            return None
+    except Exception as e:
+        return None
+
+def convert_temp(temp, to_fahrenheit=False):
+    if to_fahrenheit:
+        return round((temp * 9/5) + 32, 1)
+    else:
+        return round((temp - 32) * 5/9, 1)
+
+def get_weather(*args):
+    if not is_connected():
+        messagebox.showerror("Weather App", "Please check your internet connection.")
+        return
+
+    city = text_box.get() if text_box.get() else get_user_location()
+
+    if not city:
+        messagebox.showerror("Weather App", "Could not determine your location. Please enter a city name.")
+        return
+
+    try:
+        geo_locator = Nominatim(user_agent='WeatherApp')
+        location = geo_locator.geocode(city)
+        timezone = TimezoneFinder()
+        result = timezone.timezone_at(lng=location.longitude, lat=location.latitude)
+
+        home = pytz.timezone(result)
+        local_time = datetime.now(home).strftime('%I:%M %p')
+        time_label.config(text=f"⏰ Local Time: {local_time}")
+        timezone_label.config(text=f"🌍 Timezone: {result}")
+        lon_label.config(text=f"🧭 Longitude: {location.longitude:.2f}")
+        lat_label.config(text=f"🧭 Latitude: {location.latitude:.2f}")
+
+        api = f'https://api.openweathermap.org/data/2.5/weather?q={city}&appid=6ab9537c94001a93096b2c7e83aa9df0'
+        json_data = requests.get(api).json()
+
+        if json_data.get('cod') != 200:
+            raise ValueError(json_data.get('message', 'Unknown Error'))
+
+        condition = json_data['weather'][0]['main']
+        description = json_data['weather'][0]['description'].capitalize()
+        temp_celsius = round(json_data['main']['temp'] - 273.15, 1)
+        temp_fahrenheit = convert_temp(temp_celsius, to_fahrenheit=True)
+        wind = json_data['wind']['speed']
+        humidity = json_data['main']['humidity']
+        pressure = json_data['main']['pressure']
+        visibility = round(json_data['visibility'] / 1000, 1)
+
+        temp = f"{temp_celsius}°C" if not temp_in_fahrenheit.get() else f"{temp_fahrenheit}°F"
+        temperature_label.config(text=f"🌡 Temperature: {temp}")
+        feel_label.config(text=f"✨ {condition} | Feels Like {temp}")
+        wind_label.config(text=f"🍃 Wind Speed: {wind} m/s")
+        humidity_label.config(text=f"💧 Humidity: {humidity}%")
+        weather_label.config(text=f"☁ Condition: {description}")
+        pressure_label.config(text=f"📊 Pressure: {pressure} hPa")
+        visibility_label.config(text=f"👁 Visibility: {visibility} KM")
+        location_label.config(text=f"🌸 Weather in {city.upper()}")
+        text_box.delete(0, 'end')
+
+    except Exception as e:
+        messagebox.showerror("Weather App", f"Error: {e}")
+
+def toggle_temp_unit():
+    get_weather()
+
+# Tkinter Window with Updated Design
+window = Tk()
+window.title("Dreamy Weather App")
+window.geometry('600x600')
+window.config(bg='#ffe4e1')  # Light pastel pink background
+window.resizable(height=False, width=False)
+
+# Header
+header_label = Label(
+    window, text="🌸 Weather App 🌸", 
+    font=('Comic Sans MS', 24, 'bold'), 
+    bg='#ffe4e1', 
+    fg='#ff69b4'  # Hot pink
+)
+header_label.pack(pady=15)
+
+# Search Bar
+text_box = Entry(
+    window, justify='center', 
+    width=30, font=('Comic Sans MS', 14), 
+    bg='#ffffff', fg='black', relief=GROOVE
+)
+text_box.pack(pady=10)
+text_box.focus()
+
+search_button = Button(
+    window, text="🔍 Get Weather", 
+    command=get_weather, font=('Comic Sans MS', 14), 
+    bg='#ffb6c1', fg='white', relief=RAISED
+)
+search_button.pack(pady=10)
+
+# Temperature Toggle
+temp_in_fahrenheit = BooleanVar()
+toggle_temp_button = Checkbutton(
+    window,
+    text="📏 Display in Fahrenheit",
+    variable=temp_in_fahrenheit,
+    command=toggle_temp_unit,
+    bg='#ffe4e1',
+    font=('Comic Sans MS', 12),
+    fg='#ff69b4'
+)
+toggle_temp_button.pack()
+
+# Weather Details
+location_label = Label(window, text="🌈 Enter a city or press Enter 🌈", font=('Comic Sans MS', 14), bg='#ffe4e1', fg='#ff69b4')
+location_label.pack(pady=10)
+
+temperature_label = Label(window, text="", font=('Comic Sans MS', 18, 'bold'), bg='#ffe4e1', fg='#ff1493')
+temperature_label.pack()
+
+feel_label = Label(window, text="", font=('Comic Sans MS', 14), bg='#ffe4e1', fg='black')
+feel_label.pack()
+
+time_label = Label(window, text="", font=('Comic Sans MS', 12), bg='#ffe4e1', fg='black')
+time_label.pack()
+
+timezone_label = Label(window, text="", font=('Comic Sans MS', 12), bg='#ffe4e1', fg='black')
+timezone_label.pack()
+
+lon_label = Label(window, text="", font=('Comic Sans MS', 12), bg='#ffe4e1', fg='black')
+lon_label.pack()
+
+lat_label = Label(window, text="", font=('Comic Sans MS', 12), bg='#ffe4e1', fg='black')
+lat_label.pack()
+
+wind_label = Label(window, text="", font=('Comic Sans MS', 12), bg='#ffe4e1', fg='black')
+wind_label.pack()
+
+humidity_label = Label(window, text="", font=('Comic Sans MS', 12), bg='#ffe4e1', fg='black')
+humidity_label.pack()
+
+weather_label = Label(window, text="", font=('Comic Sans MS', 12), bg='#ffe4e1', fg='black')
+weather_label.pack()
+
+pressure_label = Label(window, text="", font=('Comic Sans MS', 12), bg='#ffe4e1', fg='black')
+pressure_label.pack()
+
+visibility_label = Label(window, text="", font=('Comic Sans MS', 12), bg='#ffe4e1', fg='black')
+visibility_label.pack()
+
+# Bind Enter Key to Search
+window.bind('<Return>', get_weather)
+
+# Run the App
+window.mainloop()
